@@ -6,6 +6,7 @@ import { formatDateLabel } from '../lib/format';
 import { describeRecoveryItem, describeWarmupItem } from '../lib/describeItem';
 import ExerciseAccordion from './ExerciseAccordion';
 import TimedRow from './TimedRow';
+import WorkoutRecapCard from './WorkoutRecapCard';
 
 interface Props {
   day: ResolvedDay;
@@ -28,8 +29,6 @@ const WORKOUT_OPTIONS = [
 ];
 
 export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOverride }: Props) {
-  const isMainDay = day.workout.kind === 'main';
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -72,14 +71,44 @@ export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOver
         </div>
       )}
 
-      {isMainDay && (
+      {day.workout.kind === 'main' && (
+        <WorkoutRecapCard
+          workoutId={day.workout.id}
+          workoutName={day.workout.name}
+          currentDate={day.date}
+          exercises={day.workout.exercises}
+          logs={logs}
+        />
+      )}
+
+      {day.workout.kind === 'main' && (
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-400">Warm-up</h3>
           <div className="space-y-1 rounded-lg border border-amber-900/60 bg-amber-500/5 p-3">
             {WARMUP.map((w) => {
               const meta = EXERCISE_CATALOG[w.id];
               const { bits, plan, label } = describeWarmupItem(w);
-              return <TimedRow key={w.id} name={meta.name} bits={bits} plan={plan} label={label} />;
+              return (
+                <TimedRow
+                  key={w.id}
+                  name={meta.name}
+                  bits={bits}
+                  plan={plan}
+                  label={label}
+                  logProps={
+                    w.duration_sec !== undefined
+                      ? {
+                          exerciseId: w.id,
+                          workoutId: day.workout.id,
+                          date: day.date,
+                          targetSeconds: w.duration_sec,
+                          logs,
+                          onSaveLog,
+                        }
+                      : undefined
+                  }
+                />
+              );
             })}
           </div>
         </div>

@@ -112,6 +112,8 @@ export interface LogEntry {
   repsCompleted: number[];
   loadKg: number;
   durationSecCompleted?: number;
+  /** Individual attempt times (sec) for accumulated skill practice, e.g. handstand holds. Sums to durationSecCompleted. */
+  attemptsSec?: number[];
   rpe: number;
   painFlag: boolean;
   painLocation?: string;

@@ -64,74 +64,76 @@ export default function App() {
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Dumbbell className="h-6 w-6 text-emerald-400" />
-          <div>
-            <h1 className="font-bebas text-2xl tracking-wide text-slate-100">CaliPro</h1>
-            <p className="text-[11px] text-slate-500">{PROGRAM_META.programName}</p>
-          </div>
-        </div>
-        <button
-          onClick={handleReset}
-          className="flex items-center gap-1 rounded border border-slate-800 px-2 py-1.5 text-xs text-slate-400 hover:border-rose-800 hover:text-rose-400"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset
-        </button>
-      </header>
-
-      <div className="mb-6 flex items-center justify-between text-xs text-slate-500">
-        <button className="hover:text-slate-200" onClick={() => setSelectedDate(addDays(weekStart, -7))}>
-          ← prev week
-        </button>
-        <button className="hover:text-slate-200" onClick={() => setSelectedDate(todayISO())}>
-          today
-        </button>
-        <button className="hover:text-slate-200" onClick={() => setSelectedDate(addDays(weekStart, 7))}>
-          next week →
-        </button>
-      </div>
-
-      <div className="mb-4">
-        <WeekGrid
-          weekDates={weekDates}
-          selectedDate={selectedDate}
-          logs={state.logs}
-          overrides={state.scheduleOverrides}
-          onSelect={setSelectedDate}
-        />
-      </div>
-
-      {!sessionActive && (
-        <div className="mb-6 flex justify-center">
-          {canStart ? (
-            <button
-              onClick={() => setSessionActive(true)}
-              className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-            >
-              <Play className="h-4 w-4" />
-              Start {resolvedDay.workout.name}
-            </button>
-          ) : (
-            <p className="text-xs text-slate-500">Rest day - nothing to start.</p>
-          )}
-        </div>
-      )}
-
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        {sessionActive ? (
+      {sessionActive ? (
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
           <GuidedSession day={resolvedDay} logs={state.logs} onSaveLog={handleSaveLog} onExit={() => setSessionActive(false)} />
-        ) : (
-          <DayPanel
-            day={resolvedDay}
-            logs={state.logs}
-            onSaveLog={handleSaveLog}
-            onOverride={handleOverride}
-            onClearOverride={handleClearOverride}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <header className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="h-6 w-6 text-emerald-400" />
+              <div>
+                <h1 className="font-bebas text-2xl tracking-wide text-slate-100">CaliPro</h1>
+                <p className="text-[11px] text-slate-500">{PROGRAM_META.programName}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1 rounded border border-slate-800 px-2 py-1.5 text-xs text-slate-400 hover:border-rose-800 hover:text-rose-400"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </button>
+          </header>
+
+          <div className="mb-6 flex items-center justify-between text-xs text-slate-500">
+            <button className="hover:text-slate-200" onClick={() => setSelectedDate(addDays(weekStart, -7))}>
+              ← prev week
+            </button>
+            <button className="hover:text-slate-200" onClick={() => setSelectedDate(todayISO())}>
+              today
+            </button>
+            <button className="hover:text-slate-200" onClick={() => setSelectedDate(addDays(weekStart, 7))}>
+              next week →
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <WeekGrid
+              weekDates={weekDates}
+              selectedDate={selectedDate}
+              logs={state.logs}
+              overrides={state.scheduleOverrides}
+              onSelect={setSelectedDate}
+            />
+          </div>
+
+          <div className="mb-6 flex justify-center">
+            {canStart ? (
+              <button
+                onClick={() => setSessionActive(true)}
+                className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+              >
+                <Play className="h-4 w-4" />
+                Start {resolvedDay.workout.name}
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500">Rest day - nothing to start.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <DayPanel
+              day={resolvedDay}
+              logs={state.logs}
+              onSaveLog={handleSaveLog}
+              onOverride={handleOverride}
+              onClearOverride={handleClearOverride}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
