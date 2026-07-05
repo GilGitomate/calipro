@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Flag, Pause, Play, RotateCcw } from 'lucide-react';
 import { playBeep, vibrate } from '../../lib/beep';
 import { formatSeconds } from '../../lib/format';
+import { useWakeLock } from '../../lib/useWakeLock';
 
 interface Props {
   targetSeconds: number;
@@ -23,14 +24,42 @@ export default function AttemptLogger({ targetSeconds, initialAttempts = [], onA
   const [running, setRunning] = useState(false);
   const [attempts, setAttempts] = useState<number[]>(initialAttempts);
   const [hitTarget, setHitTarget] = useState(false);
+  /** Same wall-clock anchoring as the other timers: elapsed is derived from Date.now(), so
+   * the current attempt's time is still correct after the phone screen locks or the tab
+   * gets backgrounded, rather than freezing or drifting from missed interval ticks. */
+  const bankedMsRef = useRef(0);
+  const startAtRef = useRef<number | null>(null);
 
   const loggedTotal = attempts.reduce((sum, a) => sum + a, 0);
   const overallElapsed = loggedTotal + elapsed;
 
+  useWakeLock(running);
+
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(id);
+    if (!running) {
+      if (startAtRef.current != null) {
+        bankedMsRef.current += Date.now() - startAtRef.current;
+        startAtRef.current = null;
+      }
+      return;
+    }
+    startAtRef.current = Date.now();
+
+    function tick() {
+      const totalMs = bankedMsRef.current + (startAtRef.current != null ? Date.now() - startAtRef.current : 0);
+      setElapsed(Math.floor(totalMs / 1000));
+    }
+
+    tick();
+    const id = setInterval(tick, 250);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [running]);
 
   useEffect(() => {
@@ -46,14 +75,18 @@ export default function AttemptLogger({ targetSeconds, initialAttempts = [], onA
     const next = [...attempts, elapsed];
     setAttempts(next);
     onAttemptsChange(next);
-    setElapsed(0);
     setRunning(false);
+    bankedMsRef.current = 0;
+    startAtRef.current = null;
+    setElapsed(0);
     playBeep();
     vibrate(200);
   }
 
   function reset() {
     setRunning(false);
+    bankedMsRef.current = 0;
+    startAtRef.current = null;
     setElapsed(0);
     setAttempts([]);
     setHitTarget(false);

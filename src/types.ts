@@ -145,4 +145,6 @@ export interface AppState {
   logs: LogEntry[];
   /** Manual per-date overrides of the auto-computed schedule, keyed by ISO date. */
   scheduleOverrides: Record<string, string>;
+  /** Bodyweight (kg) logged at the start of each training day, keyed by ISO date. Prefills the Load field on every exercise that day. */
+  bodyweightByDate: Record<string, number>;
 }

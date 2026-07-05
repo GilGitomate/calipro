@@ -68,9 +68,11 @@ interface Props {
   logs: LogEntry[];
   onSaveLog: (log: LogEntry) => void;
   onExit: () => void;
+  /** Today's logged bodyweight (kg), prefilled as the starting Load for each exercise step. */
+  defaultLoadKg?: number;
 }
 
-export default function GuidedSession({ day, logs, onSaveLog, onExit }: Props) {
+export default function GuidedSession({ day, logs, onSaveLog, onExit, defaultLoadKg }: Props) {
   const [steps] = useState(() => buildSteps(day));
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<'active' | 'rest'>('active');
@@ -158,6 +160,7 @@ export default function GuidedSession({ day, logs, onSaveLog, onExit }: Props) {
                 workoutId={day.workout.id}
                 logs={logs}
                 onSaveLog={onSaveLog}
+                defaultLoadKg={defaultLoadKg}
                 forceExpanded
                 compact
                 glow

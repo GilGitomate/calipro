@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { playBeep, vibrate } from '../../lib/beep';
+import { useWakeLock } from '../../lib/useWakeLock';
 
 interface Props {
   targetSeconds: number;
@@ -19,23 +20,51 @@ export default function AccumulateTimer({ targetSeconds, restSeconds, onTargetRe
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const [hitTarget, setHitTarget] = useState(false);
+  /** Elapsed ms banked from prior run segments, plus the timestamp the current segment
+   * started at - so elapsed time is always derived from Date.now() and survives the tab
+   * being backgrounded or the phone screen locking, instead of drifting from missed ticks. */
+  const bankedMsRef = useRef(0);
+  const startAtRef = useRef<number | null>(null);
+  const hitTargetRef = useRef(hitTarget);
+  hitTargetRef.current = hitTarget;
+
+  useWakeLock(running);
 
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => {
-      setElapsed((e) => {
-        const next = e + 1;
-        if (!hitTarget && next >= targetSeconds) {
-          playBeep();
-          vibrate(200);
-          setHitTarget(true);
-          onTargetReached?.();
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [running, hitTarget, targetSeconds, onTargetReached]);
+    if (!running) {
+      if (startAtRef.current != null) {
+        bankedMsRef.current += Date.now() - startAtRef.current;
+        startAtRef.current = null;
+      }
+      return;
+    }
+    startAtRef.current = Date.now();
+
+    function tick() {
+      const totalMs = bankedMsRef.current + (startAtRef.current != null ? Date.now() - startAtRef.current : 0);
+      const secs = Math.floor(totalMs / 1000);
+      setElapsed(secs);
+      if (!hitTargetRef.current && secs >= targetSeconds) {
+        hitTargetRef.current = true;
+        setHitTarget(true);
+        playBeep();
+        vibrate(200);
+        onTargetReached?.();
+      }
+    }
+
+    tick();
+    const id = setInterval(tick, 250);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
 
   const pct = Math.min(100, (elapsed / targetSeconds) * 100);
 
@@ -64,6 +93,8 @@ export default function AccumulateTimer({ targetSeconds, restSeconds, onTargetRe
             className="rounded-full bg-slate-800 p-2.5 text-slate-400 hover:bg-slate-700"
             onClick={() => {
               setRunning(false);
+              bankedMsRef.current = 0;
+              startAtRef.current = null;
               setElapsed(0);
               setHitTarget(false);
             }}

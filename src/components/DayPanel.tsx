@@ -14,6 +14,8 @@ interface Props {
   onSaveLog: (log: LogEntry) => void;
   onOverride: (date: string, workoutKey: string) => void;
   onClearOverride: (date: string) => void;
+  /** Today's logged bodyweight (kg), prefilled as the starting Load for each exercise below. */
+  defaultLoadKg?: number;
 }
 
 const WORKOUT_OPTIONS = [
@@ -28,7 +30,7 @@ const WORKOUT_OPTIONS = [
   'Full_Rest',
 ];
 
-export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOverride }: Props) {
+export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOverride, defaultLoadKg }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -125,6 +127,7 @@ export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOver
               workoutId={day.workout.id}
               logs={logs}
               onSaveLog={onSaveLog}
+              defaultLoadKg={defaultLoadKg}
             />
           ))}
         </div>

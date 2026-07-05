@@ -5,6 +5,7 @@ const STORAGE_KEY = 'calipro_v2_state';
 const EMPTY_STATE: AppState = {
   logs: [],
   scheduleOverrides: {},
+  bodyweightByDate: {},
 };
 
 export function loadState(): AppState {
@@ -15,6 +16,7 @@ export function loadState(): AppState {
     return {
       logs: Array.isArray(parsed.logs) ? parsed.logs : [],
       scheduleOverrides: parsed.scheduleOverrides ?? {},
+      bodyweightByDate: parsed.bodyweightByDate ?? {},
     };
   } catch {
     return { ...EMPTY_STATE };

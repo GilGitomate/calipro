@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { playBeep, vibrate } from '../../lib/beep';
+import { useWakeLock } from '../../lib/useWakeLock';
 
 interface Props {
   seconds: number;
@@ -21,23 +22,44 @@ export default function CountdownTimer({ seconds, label, onDone, accent = 'text-
   const [running, setRunning] = useState(autoStart && seconds > 0);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  /** Wall-clock timestamp the countdown should hit zero at - lets us recompute the true
+   * remaining time from Date.now() instead of trusting interval ticks, which browsers
+   * throttle or suspend entirely while a phone's screen is off or the tab is backgrounded. */
+  const endAtRef = useRef<number | null>(null);
+
+  useWakeLock(running);
 
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          setRunning(false);
-          playBeep();
-          vibrate(200);
-          onDoneRef.current?.();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
+    if (!running) {
+      endAtRef.current = null;
+      return;
+    }
+    endAtRef.current = Date.now() + remaining * 1000;
+
+    function tick() {
+      if (endAtRef.current == null) return;
+      const secLeft = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000));
+      setRemaining(secLeft);
+      if (secLeft <= 0) {
+        endAtRef.current = null;
+        setRunning(false);
+        playBeep();
+        vibrate(200);
+        onDoneRef.current?.();
+      }
+    }
+
+    tick();
+    const id = setInterval(tick, 250);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);
 
   const pct = seconds > 0 ? ((seconds - remaining) / seconds) * 100 : 0;

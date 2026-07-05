@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, TrendingUp, TriangleAlert } from 'lucide-react';
 import { LogEntry, MainWorkoutExercise, PhaseKey } from '../types';
 import { EXERCISE_CATALOG } from '../constants';
@@ -17,6 +17,8 @@ interface Props {
   workoutId: string;
   logs: LogEntry[];
   onSaveLog: (log: LogEntry) => void;
+  /** Today's logged bodyweight (kg), used as the starting Load value until the user overrides it. */
+  defaultLoadKg?: number;
   forceExpanded?: boolean;
   /** Guided-session mode: hides progression guidance, last-session line and history; opens the log form by default. */
   compact?: boolean;
@@ -31,6 +33,7 @@ export default function ExerciseAccordion({
   workoutId,
   logs,
   onSaveLog,
+  defaultLoadKg,
   forceExpanded = false,
   compact = false,
   glow = false,
@@ -76,7 +79,12 @@ export default function ExerciseAccordion({
   const [duration, setDuration] = useState(todayLog?.durationSecCompleted ?? target);
   const [attempts, setAttempts] = useState<number[]>(todayLog?.attemptsSec ?? []);
   const attemptsTotal = attempts.reduce((sum, a) => sum + (a || 0), 0);
-  const [load, setLoad] = useState(todayLog?.loadKg ?? prescription.load_kg ?? 0);
+  const [load, setLoad] = useState(todayLog?.loadKg ?? defaultLoadKg ?? prescription.load_kg ?? 0);
+
+  useEffect(() => {
+    if (!todayLog && load === 0 && defaultLoadKg) setLoad(defaultLoadKg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultLoadKg]);
   const [rpe, setRpe] = useState(todayLog?.rpe ?? 7);
   const [painFlag, setPainFlag] = useState(todayLog?.painFlag ?? false);
   const [painLocation, setPainLocation] = useState(todayLog?.painLocation ?? '');
@@ -236,6 +244,9 @@ export default function ExerciseAccordion({
                     value={load}
                     onChange={(e) => setLoad(Number(e.target.value))}
                   />
+                  {defaultLoadKg !== undefined && load === defaultLoadKg && (
+                    <span className="text-[10px] text-slate-500">from today's weigh-in</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-xs text-slate-400">RPE</label>

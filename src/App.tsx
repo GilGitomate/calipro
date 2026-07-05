@@ -7,6 +7,7 @@ import { addDays, getDayAbbrev, resolveDay, todayISO } from './lib/phase';
 import WeekGrid from './components/WeekGrid';
 import DayPanel from './components/DayPanel';
 import GuidedSession from './components/GuidedSession';
+import WeightPrompt from './components/WeightPrompt';
 
 const DAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -18,6 +19,7 @@ export default function App() {
   const [state, setState] = useState<AppState>(() => loadState());
   const [selectedDate, setSelectedDate] = useState<string>(() => todayISO());
   const [sessionActive, setSessionActive] = useState(false);
+  const [showWeightPrompt, setShowWeightPrompt] = useState(false);
 
   useEffect(() => {
     saveState(state);
@@ -25,6 +27,7 @@ export default function App() {
 
   useEffect(() => {
     setSessionActive(false);
+    setShowWeightPrompt(false);
   }, [selectedDate]);
 
   const weekStart = useMemo(() => getWeekStart(selectedDate), [selectedDate]);
@@ -60,13 +63,32 @@ export default function App() {
     }
   }
 
+  function handleSaveBodyweight(date: string, kg: number) {
+    setState((prev) => ({ ...prev, bodyweightByDate: { ...prev.bodyweightByDate, [date]: kg } }));
+  }
+
+  function handleStartClick() {
+    if (state.bodyweightByDate[selectedDate] === undefined) {
+      setShowWeightPrompt(true);
+    } else {
+      setSessionActive(true);
+    }
+  }
+
   const canStart = resolvedDay.workout.kind !== 'rest';
+  const todaysWeight = state.bodyweightByDate[selectedDate];
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-6">
       {sessionActive ? (
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <GuidedSession day={resolvedDay} logs={state.logs} onSaveLog={handleSaveLog} onExit={() => setSessionActive(false)} />
+          <GuidedSession
+            day={resolvedDay}
+            logs={state.logs}
+            onSaveLog={handleSaveLog}
+            onExit={() => setSessionActive(false)}
+            defaultLoadKg={todaysWeight}
+          />
         </div>
       ) : (
         <>
@@ -109,15 +131,37 @@ export default function App() {
             />
           </div>
 
-          <div className="mb-6 flex justify-center">
+          <div className="mb-6 flex flex-col items-center gap-2">
             {canStart ? (
-              <button
-                onClick={() => setSessionActive(true)}
-                className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-              >
-                <Play className="h-4 w-4" />
-                Start {resolvedDay.workout.name}
-              </button>
+              showWeightPrompt ? (
+                <WeightPrompt
+                  workoutName={resolvedDay.workout.name}
+                  onSubmit={(kg) => {
+                    handleSaveBodyweight(selectedDate, kg);
+                    setShowWeightPrompt(false);
+                    setSessionActive(true);
+                  }}
+                  onSkip={() => {
+                    setShowWeightPrompt(false);
+                    setSessionActive(true);
+                  }}
+                />
+              ) : (
+                <>
+                  <button
+                    onClick={handleStartClick}
+                    className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                  >
+                    <Play className="h-4 w-4" />
+                    Start {resolvedDay.workout.name}
+                  </button>
+                  {todaysWeight !== undefined && (
+                    <button className="text-xs text-slate-500 hover:text-slate-300" onClick={() => setShowWeightPrompt(true)}>
+                      Today's weight: {todaysWeight} kg · edit
+                    </button>
+                  )}
+                </>
+              )
             ) : (
               <p className="text-xs text-slate-500">Rest day - nothing to start.</p>
             )}
@@ -130,6 +174,7 @@ export default function App() {
               onSaveLog={handleSaveLog}
               onOverride={handleOverride}
               onClearOverride={handleClearOverride}
+              defaultLoadKg={state.bodyweightByDate[resolvedDay.date]}
             />
           </div>
         </>
