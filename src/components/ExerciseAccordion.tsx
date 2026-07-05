@@ -9,6 +9,7 @@ import { planForDurationItem } from '../lib/timerPlan';
 import TimerRunner from './timers/TimerRunner';
 import RepSetCycler from './timers/RepSetCycler';
 import AttemptLogger from './timers/AttemptLogger';
+import CountdownTimer from './timers/CountdownTimer';
 
 interface Props {
   exercise: MainWorkoutExercise;
@@ -19,6 +20,8 @@ interface Props {
   onSaveLog: (log: LogEntry) => void;
   /** Today's logged bodyweight (kg), used as the starting Load value until the user overrides it. */
   defaultLoadKg?: number;
+  /** Guided-session only: called once a skill exercise's practice time target is reached, to move on automatically. */
+  onAutoAdvance?: () => void;
   forceExpanded?: boolean;
   /** Guided-session mode: hides progression guidance, last-session line and history; opens the log form by default. */
   compact?: boolean;
@@ -34,6 +37,7 @@ export default function ExerciseAccordion({
   logs,
   onSaveLog,
   defaultLoadKg,
+  onAutoAdvance,
   forceExpanded = false,
   compact = false,
   glow = false,
@@ -148,10 +152,15 @@ export default function ExerciseAccordion({
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-800 p-3">
+          {isSkill && (
+            <div className="space-y-3">
+              <CountdownTimer seconds={target} label="Practice time" accent={color.text} onDone={onAutoAdvance} />
+              <AttemptLogger initialAttempts={attempts} onAttemptsChange={setAttempts} />
+            </div>
+          )}
           {meta.description && <p className="text-xs text-slate-400">{meta.description}</p>}
           {prescription.note && <p className="text-[11px] italic text-slate-500">{prescription.note}</p>}
 
-          {isSkill && <AttemptLogger targetSeconds={target} initialAttempts={attempts} onAttemptsChange={setAttempts} />}
           {durationBased && !isSkill && timerPlan.kind !== 'none' && <TimerRunner plan={timerPlan} label="Work" />}
           {!durationBased && (prescription.sets ?? 1) > 1 && (
             <RepSetCycler sets={prescription.sets ?? 1} targetLabel={setTargetLabel} restSeconds={prescription.rest_sec} />

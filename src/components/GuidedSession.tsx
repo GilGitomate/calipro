@@ -161,6 +161,7 @@ export default function GuidedSession({ day, logs, onSaveLog, onExit, defaultLoa
                 logs={logs}
                 onSaveLog={onSaveLog}
                 defaultLoadKg={defaultLoadKg}
+                onAutoAdvance={handleFinish}
                 forceExpanded
                 compact
                 glow
