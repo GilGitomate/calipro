@@ -161,6 +161,16 @@ export default function ExerciseAccordion({
           {meta.description && <p className="text-xs text-slate-400">{meta.description}</p>}
           {prescription.note && <p className="text-[11px] italic text-slate-500">{prescription.note}</p>}
 
+          <div className="rounded-md bg-slate-900/60 px-2 py-1.5 text-xs text-slate-400">
+            {lastSession ? (
+              <span>
+                Last session ({lastSession.date}): <span className="font-semibold text-slate-200">{summarizeLog(lastSession, meta.metricType)}</span>
+              </span>
+            ) : (
+              <span>No previous log for this exercise yet.</span>
+            )}
+          </div>
+
           {durationBased && !isSkill && timerPlan.kind !== 'none' && <TimerRunner plan={timerPlan} label="Work" />}
           {!durationBased && (prescription.sets ?? 1) > 1 && (
             <RepSetCycler sets={prescription.sets ?? 1} targetLabel={setTargetLabel} restSeconds={prescription.rest_sec} />
@@ -177,18 +187,6 @@ export default function ExerciseAccordion({
                 Next session guidance
               </div>
               <p className="text-slate-400">{progression.messageToUser}</p>
-            </div>
-          )}
-
-          {!compact && (
-            <div className="text-xs text-slate-400">
-              {lastSession ? (
-                <span>
-                  Last session ({lastSession.date}): <span className="text-slate-200">{summarizeLog(lastSession, meta.metricType)}</span>
-                </span>
-              ) : (
-                <span>No previous log for this exercise yet.</span>
-              )}
             </div>
           )}
 
