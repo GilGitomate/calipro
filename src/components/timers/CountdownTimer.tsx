@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { playBeep, vibrate } from '../../lib/beep';
 import { useWakeLock } from '../../lib/useWakeLock';
+import { usePrepCountdown } from '../../lib/usePrepCountdown';
 
 interface Props {
   seconds: number;
@@ -9,6 +10,10 @@ interface Props {
   onDone?: () => void;
   accent?: string;
   autoStart?: boolean;
+  /** Seconds of "get ready" countdown shown before this timer actually starts, triggered the
+   * moment play is pressed (or on mount when autoStart is set). Pass 0 to skip it - used when a
+   * segment auto-chains from one that just finished, so the flow doesn't pause again. */
+  prepSeconds?: number;
 }
 
 function formatClock(sec: number): string {
@@ -17,17 +22,41 @@ function formatClock(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function CountdownTimer({ seconds, label, onDone, accent = 'text-slate-100', autoStart = false }: Props) {
+export default function CountdownTimer({
+  seconds,
+  label,
+  onDone,
+  accent = 'text-slate-100',
+  autoStart = false,
+  prepSeconds = 3,
+}: Props) {
   const [remaining, setRemaining] = useState(seconds);
-  const [running, setRunning] = useState(autoStart && seconds > 0);
+  const [running, setRunning] = useState(false);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   /** Wall-clock timestamp the countdown should hit zero at - lets us recompute the true
    * remaining time from Date.now() instead of trusting interval ticks, which browsers
    * throttle or suspend entirely while a phone's screen is off or the tab is backgrounded. */
   const endAtRef = useRef<number | null>(null);
+  const prep = usePrepCountdown(prepSeconds);
+  /** Only the first start gets the "get ready" prep - resuming from pause jumps straight back in. */
+  const startedRef = useRef(false);
 
-  useWakeLock(running);
+  function begin() {
+    if (startedRef.current) {
+      setRunning(true);
+      return;
+    }
+    startedRef.current = true;
+    prep.start(() => setRunning(true));
+  }
+
+  useEffect(() => {
+    if (autoStart && seconds > 0) begin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useWakeLock(running || prep.active);
 
   useEffect(() => {
     if (!running) {
@@ -64,6 +93,18 @@ export default function CountdownTimer({ seconds, label, onDone, accent = 'text-
 
   const pct = seconds > 0 ? ((seconds - remaining) / seconds) * 100 : 0;
 
+  if (prep.active) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl bg-slate-900/80 p-4">
+        <span className="text-xs font-medium uppercase tracking-wide text-sky-400">Get ready</span>
+        <span className="font-mono text-7xl font-extrabold leading-none tabular-nums text-sky-400 animate-pulse">
+          {prep.remaining}
+        </span>
+        <span className="text-xs text-slate-400">{label} starts in {prep.remaining}...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl bg-slate-900/80 p-4">
       <div className="flex items-center justify-between self-stretch text-xs font-medium text-slate-400">
@@ -77,7 +118,7 @@ export default function CountdownTimer({ seconds, label, onDone, accent = 'text-
       <div className="flex items-center gap-2">
         <button
           className="rounded-full bg-slate-800 p-2.5 text-slate-200 hover:bg-slate-700 disabled:opacity-40"
-          onClick={() => setRunning((r) => !r)}
+          onClick={() => (running ? setRunning(false) : begin())}
           disabled={remaining === 0}
           aria-label={running ? 'Pause' : 'Start'}
         >
@@ -87,6 +128,7 @@ export default function CountdownTimer({ seconds, label, onDone, accent = 'text-
           className="rounded-full bg-slate-800 p-2.5 text-slate-400 hover:bg-slate-700"
           onClick={() => {
             setRunning(false);
+            startedRef.current = false;
             setRemaining(seconds);
           }}
           aria-label="Reset"

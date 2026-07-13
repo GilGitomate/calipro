@@ -34,9 +34,12 @@ export function computeProgression(
   exercise: MainWorkoutExercise,
   phaseKey: PhaseKey,
   history: LogEntry[],
+  /** Gil's manually-set target, if any - takes priority over the phase table's number so
+   * progression guidance is based on what he's actually aiming for. */
+  targetOverride?: number,
 ): ProgressionResult {
   const prescription = getPrescription(exercise, phaseKey);
-  const target = getTargetValue(prescription) ?? 0;
+  const target = targetOverride ?? getTargetValue(prescription) ?? 0;
   const baseline: ProgressionResult = {
     exerciseId: exercise.id,
     nextSets: prescription.sets ?? 1,

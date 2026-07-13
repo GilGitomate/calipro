@@ -67,6 +67,24 @@ export default function App() {
     setState((prev) => ({ ...prev, bodyweightByDate: { ...prev.bodyweightByDate, [date]: kg } }));
   }
 
+  /** Bumps an exercise's target up/down by `delta`, floored at `minStep`. Uses the functional
+   * setState form so rapid repeat clicks (e.g. tapping + twice) each apply on top of the other
+   * instead of both reading the same stale target and colliding on the same result. */
+  function handleAdjustTargetOverride(exerciseId: string, baselineTarget: number, delta: number, minStep: number) {
+    setState((prev) => {
+      const current = prev.targetOverrides[exerciseId] ?? baselineTarget;
+      return { ...prev, targetOverrides: { ...prev.targetOverrides, [exerciseId]: Math.max(minStep, current + delta) } };
+    });
+  }
+
+  function handleClearTargetOverride(exerciseId: string) {
+    setState((prev) => {
+      const next = { ...prev.targetOverrides };
+      delete next[exerciseId];
+      return { ...prev, targetOverrides: next };
+    });
+  }
+
   function handleStartClick() {
     if (state.bodyweightByDate[selectedDate] === undefined) {
       setShowWeightPrompt(true);
@@ -88,6 +106,9 @@ export default function App() {
             onSaveLog={handleSaveLog}
             onExit={() => setSessionActive(false)}
             defaultLoadKg={todaysWeight}
+            targetOverrides={state.targetOverrides}
+            onAdjustTargetOverride={handleAdjustTargetOverride}
+            onClearTargetOverride={handleClearTargetOverride}
           />
         </div>
       ) : (
@@ -175,6 +196,9 @@ export default function App() {
               onOverride={handleOverride}
               onClearOverride={handleClearOverride}
               defaultLoadKg={state.bodyweightByDate[resolvedDay.date]}
+              targetOverrides={state.targetOverrides}
+              onAdjustTargetOverride={handleAdjustTargetOverride}
+              onClearTargetOverride={handleClearTargetOverride}
             />
           </div>
         </>

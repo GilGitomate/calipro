@@ -46,7 +46,7 @@ export default function RepSetCycler({ sets, targetLabel, restSeconds, onAllDone
         <div className="text-xs font-medium text-slate-400">
           Rest before set {currentSet + 1} of {sets}
         </div>
-        <CountdownTimer seconds={restSeconds ?? 0} label="Rest" onDone={handleRestDone} accent="text-amber-400" autoStart />
+        <CountdownTimer seconds={restSeconds ?? 0} label="Rest" onDone={handleRestDone} accent="text-amber-400" autoStart prepSeconds={0} />
       </div>
     );
   }

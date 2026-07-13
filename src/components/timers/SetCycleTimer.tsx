@@ -49,6 +49,7 @@ export default function SetCycleTimer({ workSeconds, restSeconds, sets, workLabe
         label={phase === 'work' ? workLabel : 'Rest'}
         onDone={handleDone}
         accent={phase === 'work' ? 'text-emerald-400' : 'text-amber-400'}
+        prepSeconds={phase === 'work' ? 3 : 0}
       />
     </div>
   );

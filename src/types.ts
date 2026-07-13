@@ -147,4 +147,8 @@ export interface AppState {
   scheduleOverrides: Record<string, string>;
   /** Bodyweight (kg) logged at the start of each training day, keyed by ISO date. Prefills the Load field on every exercise that day. */
   bodyweightByDate: Record<string, number>;
+  /** Manual overrides of an exercise's target reps/reps-per-leg/duration, keyed by exerciseId.
+   * Takes precedence over the phase table's prescribed target until cleared, so Gil can dial in
+   * his own numbers without needing the program spec edited. */
+  targetOverrides: Record<string, number>;
 }

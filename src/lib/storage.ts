@@ -6,6 +6,7 @@ const EMPTY_STATE: AppState = {
   logs: [],
   scheduleOverrides: {},
   bodyweightByDate: {},
+  targetOverrides: {},
 };
 
 export function loadState(): AppState {
@@ -17,6 +18,7 @@ export function loadState(): AppState {
       logs: Array.isArray(parsed.logs) ? parsed.logs : [],
       scheduleOverrides: parsed.scheduleOverrides ?? {},
       bodyweightByDate: parsed.bodyweightByDate ?? {},
+      targetOverrides: parsed.targetOverrides ?? {},
     };
   } catch {
     return { ...EMPTY_STATE };

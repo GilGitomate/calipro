@@ -16,6 +16,10 @@ interface Props {
   onClearOverride: (date: string) => void;
   /** Today's logged bodyweight (kg), prefilled as the starting Load for each exercise below. */
   defaultLoadKg?: number;
+  /** Manual target overrides, keyed by exerciseId. */
+  targetOverrides: Record<string, number>;
+  onAdjustTargetOverride: (exerciseId: string, baselineTarget: number, delta: number, minStep: number) => void;
+  onClearTargetOverride: (exerciseId: string) => void;
 }
 
 const WORKOUT_OPTIONS = [
@@ -30,7 +34,17 @@ const WORKOUT_OPTIONS = [
   'Full_Rest',
 ];
 
-export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOverride, defaultLoadKg }: Props) {
+export default function DayPanel({
+  day,
+  logs,
+  onSaveLog,
+  onOverride,
+  onClearOverride,
+  defaultLoadKg,
+  targetOverrides,
+  onAdjustTargetOverride,
+  onClearTargetOverride,
+}: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -128,6 +142,9 @@ export default function DayPanel({ day, logs, onSaveLog, onOverride, onClearOver
               logs={logs}
               onSaveLog={onSaveLog}
               defaultLoadKg={defaultLoadKg}
+              targetOverride={targetOverrides[ex.id]}
+              onAdjustTargetOverride={(delta, baselineTarget, minStep) => onAdjustTargetOverride(ex.id, baselineTarget, delta, minStep)}
+              onClearTargetOverride={() => onClearTargetOverride(ex.id)}
             />
           ))}
         </div>

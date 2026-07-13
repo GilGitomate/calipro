@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, TrendingUp, TriangleAlert } from 'lucide-react';
-import { LogEntry, MainWorkoutExercise, PhaseKey } from '../types';
+import { CheckCircle2, ChevronDown, ChevronUp, Minus, Plus, TrendingUp, TriangleAlert } from 'lucide-react';
+import { LogEntry, MainWorkoutExercise, PhaseKey, PhasePrescription } from '../types';
 import { EXERCISE_CATALOG } from '../constants';
 import { computeProgression, getPrescription, getTargetValue, isDurationBased } from '../lib/progression';
 import { COLOR_CLASSES, formatPrescription, formatTargetBig, summarizeLog } from '../lib/format';
@@ -23,10 +23,14 @@ interface Props {
   /** Guided-session only: called once a skill exercise's practice time target is reached, to move on automatically. */
   onAutoAdvance?: () => void;
   forceExpanded?: boolean;
-  /** Guided-session mode: hides progression guidance, last-session line and history; opens the log form by default. */
+  /** Guided-session mode: hides progression guidance and history; opens the log form by default. */
   compact?: boolean;
   /** Adds a colored glow around the card - used to make the guided-session step pop visually. */
   glow?: boolean;
+  /** Gil's manually-set target for this exercise, if any - overrides the phase table's number. */
+  targetOverride?: number;
+  onAdjustTargetOverride: (delta: number, baselineTarget: number, minStep: number) => void;
+  onClearTargetOverride: () => void;
 }
 
 export default function ExerciseAccordion({
@@ -41,13 +45,38 @@ export default function ExerciseAccordion({
   forceExpanded = false,
   compact = false,
   glow = false,
+  targetOverride,
+  onAdjustTargetOverride,
+  onClearTargetOverride,
 }: Props) {
   const meta = EXERCISE_CATALOG[exercise.id];
   const prescription = getPrescription(exercise, phaseKey);
-  const target = getTargetValue(prescription) ?? 0;
+  const programTarget = getTargetValue(prescription) ?? 0;
+  const target = targetOverride ?? programTarget;
   const durationBased = isDurationBased(prescription);
   const isSkill = exercise.driver_type === 'skill';
   const color = COLOR_CLASSES[meta.color];
+
+  /** Same shape as the phase table's prescription, but with Gil's manual override swapped in for
+   * whichever field carries the target number - so the header, big number and rep-set screens all
+   * reflect what he's actually aiming for today instead of the static program default. */
+  const effectivePrescription: PhasePrescription = useMemo(() => {
+    if (targetOverride === undefined) return prescription;
+    const next = { ...prescription };
+    if (next.reps !== undefined) next.reps = targetOverride;
+    else if (next.reps_per_leg !== undefined) next.reps_per_leg = targetOverride;
+    else if (next.duration_sec !== undefined) next.duration_sec = targetOverride;
+    else if (next.accumulated_time_sec !== undefined) next.accumulated_time_sec = targetOverride;
+    else if (next.total_duration_sec !== undefined) next.total_duration_sec = targetOverride;
+    return next;
+  }, [prescription, targetOverride]);
+
+  /** 1 rep/leg-rep at a time; 5s for a per-set hold; 30s for a whole-session cap (practice time, interval total). */
+  const targetStep = !durationBased ? 1 : prescription.duration_sec !== undefined ? 5 : 30;
+
+  function adjustTarget(delta: number) {
+    onAdjustTargetOverride(delta, programTarget, targetStep);
+  }
 
   const sortedHistory = useMemo(
     () => logs.filter((l) => l.exerciseId === exercise.id).slice().sort((a, b) => b.date.localeCompare(a.date)),
@@ -56,7 +85,7 @@ export default function ExerciseAccordion({
   const todayLog = sortedHistory.find((l) => l.date === date);
   const priorHistory = todayLog ? sortedHistory.filter((l) => l.date !== date) : sortedHistory;
   const lastSession = priorHistory[0];
-  const progression = computeProgression(exercise, phaseKey, sortedHistory);
+  const progression = computeProgression(exercise, phaseKey, sortedHistory, targetOverride);
 
   const timerPlan = durationBased && !isSkill
     ? planForDurationItem({
@@ -67,10 +96,10 @@ export default function ExerciseAccordion({
       })
     : { kind: 'none' as const };
 
-  const setTargetLabel = prescription.reps !== undefined
-    ? `${prescription.reps} reps`
-    : prescription.reps_per_leg !== undefined
-      ? `${prescription.reps_per_leg}/leg`
+  const setTargetLabel = effectivePrescription.reps !== undefined
+    ? `${effectivePrescription.reps} reps`
+    : effectivePrescription.reps_per_leg !== undefined
+      ? `${effectivePrescription.reps_per_leg}/leg`
       : '';
 
   const [expanded, setExpanded] = useState(forceExpanded);
@@ -141,17 +170,45 @@ export default function ExerciseAccordion({
               {todayLog && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
             </div>
             <span className="text-base font-semibold text-slate-100">{meta.name}</span>
-            <span className="text-xs text-slate-400">{formatPrescription(prescription)}</span>
+            <span className="text-xs text-slate-400">{formatPrescription(effectivePrescription)}</span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={`text-4xl font-extrabold tabular-nums ${color.text}`}>{formatTargetBig(prescription)}</span>
+          <span className={`text-4xl font-extrabold tabular-nums ${color.text}`}>{formatTargetBig(effectivePrescription)}</span>
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
         </div>
       </button>
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-800 p-3">
+          <div className="flex items-center justify-between rounded-md bg-slate-900/60 px-2.5 py-1.5">
+            <span className="text-xs text-slate-400">Adjust target</span>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-full bg-slate-800 p-1.5 text-slate-200 hover:bg-slate-700"
+                onClick={() => adjustTarget(-targetStep)}
+                aria-label="Decrease target"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <span className="min-w-[3.5rem] text-center text-sm font-bold tabular-nums text-slate-100">
+                {formatTargetBig(effectivePrescription)}
+              </span>
+              <button
+                className="rounded-full bg-slate-800 p-1.5 text-slate-200 hover:bg-slate-700"
+                onClick={() => adjustTarget(targetStep)}
+                aria-label="Increase target"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              {targetOverride !== undefined && (
+                <button className="text-[10px] text-slate-500 underline hover:text-slate-300" onClick={onClearTargetOverride}>
+                  reset
+                </button>
+              )}
+            </div>
+          </div>
+
           {isSkill && (
             <div className="space-y-3">
               <CountdownTimer seconds={target} label="Practice time" accent={color.text} onDone={onAutoAdvance} />

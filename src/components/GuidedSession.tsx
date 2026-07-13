@@ -70,9 +70,22 @@ interface Props {
   onExit: () => void;
   /** Today's logged bodyweight (kg), prefilled as the starting Load for each exercise step. */
   defaultLoadKg?: number;
+  /** Manual target overrides, keyed by exerciseId. */
+  targetOverrides: Record<string, number>;
+  onAdjustTargetOverride: (exerciseId: string, baselineTarget: number, delta: number, minStep: number) => void;
+  onClearTargetOverride: (exerciseId: string) => void;
 }
 
-export default function GuidedSession({ day, logs, onSaveLog, onExit, defaultLoadKg }: Props) {
+export default function GuidedSession({
+  day,
+  logs,
+  onSaveLog,
+  onExit,
+  defaultLoadKg,
+  targetOverrides,
+  onAdjustTargetOverride,
+  onClearTargetOverride,
+}: Props) {
   const [steps] = useState(() => buildSteps(day));
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<'active' | 'rest'>('active');
@@ -165,6 +178,11 @@ export default function GuidedSession({ day, logs, onSaveLog, onExit, defaultLoa
                 forceExpanded
                 compact
                 glow
+                targetOverride={targetOverrides[step.item.id]}
+                onAdjustTargetOverride={(delta, baselineTarget, minStep) =>
+                  onAdjustTargetOverride(step.item.id, baselineTarget, delta, minStep)
+                }
+                onClearTargetOverride={() => onClearTargetOverride(step.item.id)}
               />
             ) : (
               <div className={`rounded-2xl border ${color.border} ${color.bg} ${color.glow} p-4`}>
@@ -290,7 +308,7 @@ function RestScreen({
   return (
     <div className="space-y-3 rounded-2xl border border-amber-900/60 bg-gradient-to-b from-amber-500/10 to-transparent p-5 text-center">
       <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">Rest</p>
-      <CountdownTimer seconds={seconds} label="Rest" accent="text-amber-400" onDone={onDone} autoStart />
+      <CountdownTimer seconds={seconds} label="Rest" accent="text-amber-400" onDone={onDone} autoStart prepSeconds={0} />
       {upNextName && <p className="text-xs text-slate-400">Up next: {upNextName}</p>}
       <div className="flex items-center justify-center gap-2">
         <button
