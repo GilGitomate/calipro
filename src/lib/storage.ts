@@ -7,6 +7,7 @@ const EMPTY_STATE: AppState = {
   scheduleOverrides: {},
   bodyweightByDate: {},
   targetOverrides: {},
+  setsOverrides: {},
 };
 
 export function loadState(): AppState {
@@ -19,6 +20,7 @@ export function loadState(): AppState {
       scheduleOverrides: parsed.scheduleOverrides ?? {},
       bodyweightByDate: parsed.bodyweightByDate ?? {},
       targetOverrides: parsed.targetOverrides ?? {},
+      setsOverrides: parsed.setsOverrides ?? {},
     };
   } catch {
     return { ...EMPTY_STATE };

@@ -74,6 +74,10 @@ interface Props {
   targetOverrides: Record<string, number>;
   onAdjustTargetOverride: (exerciseId: string, baselineTarget: number, delta: number, minStep: number) => void;
   onClearTargetOverride: (exerciseId: string) => void;
+  /** Manual set-count overrides, keyed by exerciseId. */
+  setsOverrides: Record<string, number>;
+  onAdjustSetsOverride: (exerciseId: string, baselineSets: number, delta: number, minStep: number) => void;
+  onClearSetsOverride: (exerciseId: string) => void;
 }
 
 export default function GuidedSession({
@@ -85,6 +89,9 @@ export default function GuidedSession({
   targetOverrides,
   onAdjustTargetOverride,
   onClearTargetOverride,
+  setsOverrides,
+  onAdjustSetsOverride,
+  onClearSetsOverride,
 }: Props) {
   const [steps] = useState(() => buildSteps(day));
   const [index, setIndex] = useState(0);
@@ -183,6 +190,11 @@ export default function GuidedSession({
                   onAdjustTargetOverride(step.item.id, baselineTarget, delta, minStep)
                 }
                 onClearTargetOverride={() => onClearTargetOverride(step.item.id)}
+                setsOverride={setsOverrides[step.item.id]}
+                onAdjustSetsOverride={(delta, baselineSets, minStep) =>
+                  onAdjustSetsOverride(step.item.id, baselineSets, delta, minStep)
+                }
+                onClearSetsOverride={() => onClearSetsOverride(step.item.id)}
               />
             ) : (
               <div className={`rounded-2xl border ${color.border} ${color.bg} ${color.glow} p-4`}>

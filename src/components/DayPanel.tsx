@@ -20,6 +20,10 @@ interface Props {
   targetOverrides: Record<string, number>;
   onAdjustTargetOverride: (exerciseId: string, baselineTarget: number, delta: number, minStep: number) => void;
   onClearTargetOverride: (exerciseId: string) => void;
+  /** Manual set-count overrides, keyed by exerciseId. */
+  setsOverrides: Record<string, number>;
+  onAdjustSetsOverride: (exerciseId: string, baselineSets: number, delta: number, minStep: number) => void;
+  onClearSetsOverride: (exerciseId: string) => void;
 }
 
 const WORKOUT_OPTIONS = [
@@ -44,6 +48,9 @@ export default function DayPanel({
   targetOverrides,
   onAdjustTargetOverride,
   onClearTargetOverride,
+  setsOverrides,
+  onAdjustSetsOverride,
+  onClearSetsOverride,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -145,6 +152,9 @@ export default function DayPanel({
               targetOverride={targetOverrides[ex.id]}
               onAdjustTargetOverride={(delta, baselineTarget, minStep) => onAdjustTargetOverride(ex.id, baselineTarget, delta, minStep)}
               onClearTargetOverride={() => onClearTargetOverride(ex.id)}
+              setsOverride={setsOverrides[ex.id]}
+              onAdjustSetsOverride={(delta, baselineSets, minStep) => onAdjustSetsOverride(ex.id, baselineSets, delta, minStep)}
+              onClearSetsOverride={() => onClearSetsOverride(ex.id)}
             />
           ))}
         </div>

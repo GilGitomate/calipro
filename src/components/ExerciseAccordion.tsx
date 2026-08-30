@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, Minus, Plus, TrendingUp, TriangleAlert } from 'lucide-react';
 import { LogEntry, MainWorkoutExercise, PhaseKey, PhasePrescription } from '../types';
 import { EXERCISE_CATALOG } from '../constants';
@@ -31,6 +31,10 @@ interface Props {
   targetOverride?: number;
   onAdjustTargetOverride: (delta: number, baselineTarget: number, minStep: number) => void;
   onClearTargetOverride: () => void;
+  /** Gil's manually-set set count for this exercise, if any - overrides the phase table's number. */
+  setsOverride?: number;
+  onAdjustSetsOverride: (delta: number, baselineSets: number, minStep: number) => void;
+  onClearSetsOverride: () => void;
 }
 
 export default function ExerciseAccordion({
@@ -48,6 +52,9 @@ export default function ExerciseAccordion({
   targetOverride,
   onAdjustTargetOverride,
   onClearTargetOverride,
+  setsOverride,
+  onAdjustSetsOverride,
+  onClearSetsOverride,
 }: Props) {
   const meta = EXERCISE_CATALOG[exercise.id];
   const prescription = getPrescription(exercise, phaseKey);
@@ -57,25 +64,35 @@ export default function ExerciseAccordion({
   const isSkill = exercise.driver_type === 'skill';
   const color = COLOR_CLASSES[meta.color];
 
-  /** Same shape as the phase table's prescription, but with Gil's manual override swapped in for
-   * whichever field carries the target number - so the header, big number and rep-set screens all
-   * reflect what he's actually aiming for today instead of the static program default. */
+  const programSets = prescription.sets;
+  const effectiveSets = setsOverride ?? programSets ?? 1;
+
+  /** Same shape as the phase table's prescription, but with Gil's manual overrides swapped in for
+   * whichever field carries the target number and the set count - so the header, big number and
+   * rep-set screens all reflect what he's actually aiming for today instead of the static program
+   * default. */
   const effectivePrescription: PhasePrescription = useMemo(() => {
-    if (targetOverride === undefined) return prescription;
     const next = { ...prescription };
-    if (next.reps !== undefined) next.reps = targetOverride;
-    else if (next.reps_per_leg !== undefined) next.reps_per_leg = targetOverride;
-    else if (next.duration_sec !== undefined) next.duration_sec = targetOverride;
-    else if (next.accumulated_time_sec !== undefined) next.accumulated_time_sec = targetOverride;
-    else if (next.total_duration_sec !== undefined) next.total_duration_sec = targetOverride;
+    if (targetOverride !== undefined) {
+      if (next.reps !== undefined) next.reps = targetOverride;
+      else if (next.reps_per_leg !== undefined) next.reps_per_leg = targetOverride;
+      else if (next.duration_sec !== undefined) next.duration_sec = targetOverride;
+      else if (next.accumulated_time_sec !== undefined) next.accumulated_time_sec = targetOverride;
+      else if (next.total_duration_sec !== undefined) next.total_duration_sec = targetOverride;
+    }
+    if (setsOverride !== undefined && next.sets !== undefined) next.sets = setsOverride;
     return next;
-  }, [prescription, targetOverride]);
+  }, [prescription, targetOverride, setsOverride]);
 
   /** 1 rep/leg-rep at a time; 5s for a per-set hold; 30s for a whole-session cap (practice time, interval total). */
   const targetStep = !durationBased ? 1 : prescription.duration_sec !== undefined ? 5 : 30;
 
   function adjustTarget(delta: number) {
     onAdjustTargetOverride(delta, programTarget, targetStep);
+  }
+
+  function adjustSets(delta: number) {
+    onAdjustSetsOverride(delta, programSets ?? 1, 1);
   }
 
   const sortedHistory = useMemo(
@@ -90,7 +107,7 @@ export default function ExerciseAccordion({
   const timerPlan = durationBased && !isSkill
     ? planForDurationItem({
         durationSeconds: target,
-        sets: prescription.sets,
+        sets: prescription.sets !== undefined ? effectiveSets : undefined,
         restSeconds: prescription.rest_sec ?? prescription.rest_between_attempts_sec,
         pattern: prescription.pattern,
       })
@@ -105,14 +122,26 @@ export default function ExerciseAccordion({
   const [expanded, setExpanded] = useState(forceExpanded);
   const [showForm, setShowForm] = useState(compact);
 
-  const [sets, setSets] = useState(todayLog?.setsCompleted ?? prescription.sets ?? 1);
+  const [sets, setSets] = useState(todayLog?.setsCompleted ?? effectiveSets);
   const [reps, setReps] = useState<number[]>(
-    todayLog?.repsCompleted?.length ? todayLog.repsCompleted : Array(prescription.sets ?? 1).fill(target),
+    todayLog?.repsCompleted?.length ? todayLog.repsCompleted : Array(effectiveSets).fill(target),
   );
-  const [duration, setDuration] = useState(todayLog?.durationSecCompleted ?? target);
+  const [duration, setDuration] = useState(todayLog?.durationSecCompleted ?? (isSkill ? 0 : target));
   const [attempts, setAttempts] = useState<number[]>(todayLog?.attemptsSec ?? []);
   const attemptsTotal = attempts.reduce((sum, a) => sum + (a || 0), 0);
   const [load, setLoad] = useState(todayLog?.loadKg ?? defaultLoadKg ?? prescription.load_kg ?? 0);
+  /** Stable id for this exercise's log today, so repeated auto-saves (each attempt, timer completion)
+   * update the same entry instead of creating duplicates. */
+  const logIdRef = useRef(todayLog?.id ?? crypto.randomUUID());
+
+  /** Keeps the editable duration field in sync with the attempt stopwatch, so the total is always
+   * ready to save even if Gil never opens the log form. Only kicks in once he's actually logged an
+   * attempt, so a manually-typed fallback number (for when he skipped the stopwatch entirely) isn't
+   * clobbered back to zero. */
+  useEffect(() => {
+    if (isSkill && attempts.length > 0) setDuration(attemptsTotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptsTotal]);
 
   useEffect(() => {
     if (!todayLog && load === 0 && defaultLoadKg) setLoad(defaultLoadKg);
@@ -134,24 +163,32 @@ export default function ExerciseAccordion({
     });
   }
 
-  function handleSave() {
-    const log: LogEntry = {
-      id: todayLog?.id ?? crypto.randomUUID(),
+  /** Builds this exercise's log entry from current form state, with room for the caller to pass
+   * fresher values than what's in state yet (e.g. a just-logged attempt, ahead of its setState
+   * landing). Always reuses the same id, so repeated auto-saves update one entry instead of piling
+   * up duplicates alongside Gil's other logs for the day. */
+  function buildLog(overrides: Partial<LogEntry> = {}): LogEntry {
+    return {
+      id: logIdRef.current,
       date,
       workoutId,
       exerciseId: exercise.id,
       setsCompleted: sets,
       repsCompleted: durationBased ? [] : reps,
       loadKg: load,
-      durationSecCompleted: durationBased ? (isSkill ? attemptsTotal : duration) : undefined,
+      durationSecCompleted: durationBased ? duration : undefined,
       attemptsSec: isSkill ? attempts : undefined,
       rpe,
       painFlag,
       painLocation: painFlag ? painLocation : undefined,
       skipped,
       skippedReason: skipped ? skippedReason : undefined,
+      ...overrides,
     };
-    onSaveLog(log);
+  }
+
+  function handleSave() {
+    onSaveLog(buildLog());
     setShowForm(false);
   }
 
@@ -209,10 +246,53 @@ export default function ExerciseAccordion({
             </div>
           </div>
 
+          {programSets !== undefined && (
+            <div className="flex items-center justify-between rounded-md bg-slate-900/60 px-2.5 py-1.5">
+              <span className="text-xs text-slate-400">Adjust sets</span>
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-full bg-slate-800 p-1.5 text-slate-200 hover:bg-slate-700"
+                  onClick={() => adjustSets(-1)}
+                  aria-label="Decrease sets"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="min-w-[3.5rem] text-center text-sm font-bold tabular-nums text-slate-100">{effectiveSets}</span>
+                <button
+                  className="rounded-full bg-slate-800 p-1.5 text-slate-200 hover:bg-slate-700"
+                  onClick={() => adjustSets(1)}
+                  aria-label="Increase sets"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                {setsOverride !== undefined && (
+                  <button className="text-[10px] text-slate-500 underline hover:text-slate-300" onClick={onClearSetsOverride}>
+                    reset
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {isSkill && (
             <div className="space-y-3">
-              <CountdownTimer seconds={target} label="Practice time" accent={color.text} onDone={onAutoAdvance} />
-              <AttemptLogger initialAttempts={attempts} onAttemptsChange={setAttempts} />
+              <CountdownTimer
+                seconds={target}
+                label="Practice time"
+                accent={color.text}
+                onDone={() => {
+                  onSaveLog(buildLog());
+                  onAutoAdvance?.();
+                }}
+              />
+              <AttemptLogger
+                initialAttempts={attempts}
+                onAttemptsChange={(next) => {
+                  setAttempts(next);
+                  const total = next.reduce((sum, a) => sum + (a || 0), 0);
+                  onSaveLog(buildLog({ durationSecCompleted: total, attemptsSec: next }));
+                }}
+              />
             </div>
           )}
           {meta.description && <p className="text-xs text-slate-400">{meta.description}</p>}
@@ -229,8 +309,8 @@ export default function ExerciseAccordion({
           </div>
 
           {durationBased && !isSkill && timerPlan.kind !== 'none' && <TimerRunner plan={timerPlan} label="Work" />}
-          {!durationBased && (prescription.sets ?? 1) > 1 && (
-            <RepSetCycler sets={prescription.sets ?? 1} targetLabel={setTargetLabel} restSeconds={prescription.rest_sec} />
+          {!durationBased && effectiveSets > 1 && (
+            <RepSetCycler sets={effectiveSets} targetLabel={setTargetLabel} restSeconds={prescription.rest_sec} />
           )}
 
           {!compact && (
@@ -284,9 +364,9 @@ export default function ExerciseAccordion({
                 </div>
               )}
 
-              {durationBased && !isSkill && (
+              {durationBased && (
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-slate-400">Duration (sec)</label>
+                  <label className="text-xs text-slate-400">{isSkill ? 'Total time (sec)' : 'Duration (sec)'}</label>
                   <input
                     type="number"
                     min={0}
@@ -294,6 +374,11 @@ export default function ExerciseAccordion({
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                   />
+                  {isSkill && (
+                    <span className="text-[10px] text-slate-500">
+                      Auto-fills from the attempt stopwatch above - edit here if you forgot to use it.
+                    </span>
+                  )}
                 </div>
               )}
 
