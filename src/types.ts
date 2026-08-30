@@ -151,4 +151,6 @@ export interface AppState {
    * Takes precedence over the phase table's prescribed target until cleared, so Gil can dial in
    * his own numbers without needing the program spec edited. */
   targetOverrides: Record<string, number>;
+  /** Manual overrides of an exercise's set count, keyed by exerciseId. Same override semantics as targetOverrides. */
+  setsOverrides: Record<string, number>;
 }

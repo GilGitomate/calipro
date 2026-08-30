@@ -85,6 +85,22 @@ export default function App() {
     });
   }
 
+  /** Same as handleAdjustTargetOverride, but for an exercise's set count. */
+  function handleAdjustSetsOverride(exerciseId: string, baselineSets: number, delta: number, minStep: number) {
+    setState((prev) => {
+      const current = prev.setsOverrides[exerciseId] ?? baselineSets;
+      return { ...prev, setsOverrides: { ...prev.setsOverrides, [exerciseId]: Math.max(minStep, current + delta) } };
+    });
+  }
+
+  function handleClearSetsOverride(exerciseId: string) {
+    setState((prev) => {
+      const next = { ...prev.setsOverrides };
+      delete next[exerciseId];
+      return { ...prev, setsOverrides: next };
+    });
+  }
+
   function handleStartClick() {
     if (state.bodyweightByDate[selectedDate] === undefined) {
       setShowWeightPrompt(true);
@@ -109,6 +125,9 @@ export default function App() {
             targetOverrides={state.targetOverrides}
             onAdjustTargetOverride={handleAdjustTargetOverride}
             onClearTargetOverride={handleClearTargetOverride}
+            setsOverrides={state.setsOverrides}
+            onAdjustSetsOverride={handleAdjustSetsOverride}
+            onClearSetsOverride={handleClearSetsOverride}
           />
         </div>
       ) : (
@@ -199,6 +218,9 @@ export default function App() {
               targetOverrides={state.targetOverrides}
               onAdjustTargetOverride={handleAdjustTargetOverride}
               onClearTargetOverride={handleClearTargetOverride}
+              setsOverrides={state.setsOverrides}
+              onAdjustSetsOverride={handleAdjustSetsOverride}
+              onClearSetsOverride={handleClearSetsOverride}
             />
           </div>
         </>
